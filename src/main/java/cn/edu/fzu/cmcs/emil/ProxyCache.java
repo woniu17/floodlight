@@ -1,114 +1,301 @@
 package cn.edu.fzu.cmcs.emil;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.IOFSwitch;
+import net.floodlightcontroller.core.annotations.LogMessageDoc;
+import net.floodlightcontroller.core.annotations.LogMessageDocs;
+import net.floodlightcontroller.core.module.FloodlightModuleContext;
+import net.floodlightcontroller.core.module.FloodlightModuleException;
+import net.floodlightcontroller.core.module.IFloodlightModule;
+import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.core.util.AppCookie;
+import net.floodlightcontroller.counter.ICounterStoreService;
 import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
+import net.floodlightcontroller.devicemanager.internal.DeviceIterator;
 import net.floodlightcontroller.firewall.FirewallRule;
 import net.floodlightcontroller.forwarding.Forwarding;
+import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Ethernet;
+import net.floodlightcontroller.packet.IPv4;
+import net.floodlightcontroller.routing.ForwardingBase;
 import net.floodlightcontroller.routing.IRoutingDecision;
+import net.floodlightcontroller.routing.IRoutingService;
 import net.floodlightcontroller.routing.Route;
+import net.floodlightcontroller.topology.ITopologyService;
+import net.floodlightcontroller.topology.NodePortTuple;
 
 import org.openflow.protocol.OFFlowMod;
 import org.openflow.protocol.OFMatch;
 import org.openflow.protocol.OFPacketIn;
+import org.openflow.protocol.OFPacketOut;
+import org.openflow.protocol.OFType;
+import org.openflow.protocol.action.OFAction;
+import org.openflow.protocol.action.OFActionOutput;
 
-public class ProxyCache extends Forwarding implements IProxyCacheServer {
+public class ProxyCache extends ForwardingBase implements IProxyCacheServer,
+		IFloodlightModule {
 
+	private Command command;
+
+	// ForwardingBase
 	@Override
 	public Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi,
 			IRoutingDecision decision, FloodlightContext cntx) {
 		// TODO Auto-generated method stub
 		System.out.println("ProxyCache.processPacketInMessage!!!!!!!");
-		// return super.processPacketInMessage(sw, pi, decision, cntx);
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
-		// If a decision has been made we obey it
-		// otherwise we just forward
-		if (decision != null) {
-			if (log.isTraceEnabled()) {
-				log.trace("Forwaring decision={} was made for PacketIn={}",
-						decision.getRoutingAction().toString(), pi);
+		// // If a decision has been made we obey it
+		// // otherwise we just forward
+		// if (decision != null) {
+		//
+		// switch (decision.getRoutingAction()) {
+		// case NONE:
+		// // don't do anything
+		// return Command.CONTINUE;
+		// case FORWARD_OR_FLOOD:
+		// case FORWARD:
+		// checkAndDoForwardFlow(sw, pi, cntx, false);
+		// return Command.CONTINUE;
+		// default:
+		// return Command.CONTINUE;
+		// }
+		// }
+		command = Command.CONTINUE;
+		checkAndDoForwardFlow(sw, pi, cntx, false);
+
+		return command;
+	}
+
+	@Override
+	public boolean pushRoute(Route route, OFMatch match,
+			Integer wildcard_hints, OFPacketIn pi, long pinSwitch, long cookie,
+			FloodlightContext cntx, boolean reqeustFlowRemovedNotifn,
+			boolean doFlush, short flowModCommand) {
+		boolean srcSwitchIncluded = false;
+		OFFlowMod fm = (OFFlowMod) floodlightProvider.getOFMessageFactory()
+				.getMessage(OFType.FLOW_MOD);
+		OFActionOutput action = new OFActionOutput();
+		action.setMaxLength((short) 0xffff);
+		List<OFAction> actions = new ArrayList<OFAction>();
+		actions.add(action);
+
+		fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+				.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+				.setBufferId(OFPacketOut.BUFFER_ID_NONE)
+				.setCookie(cookie)
+				.setCommand(flowModCommand)
+				.setMatch(match)
+				.setActions(actions)
+				.setLengthU(
+						OFFlowMod.MINIMUM_LENGTH
+								+ OFActionOutput.MINIMUM_LENGTH);
+
+		List<NodePortTuple> switchPortList = route.getPath();
+		for (int indx = 1; indx > 0; indx -= 2) {
+			// indx and indx-1 will always have the same switch DPID.
+			long switchDPID = switchPortList.get(indx).getNodeId();
+			IOFSwitch sw = floodlightProvider.getSwitch(switchDPID);
+			if (sw == null) {
+				if (log.isWarnEnabled()) {
+					log.warn("Unable to push route, switch at DPID {} "
+							+ "not available", switchDPID);
+				}
+				return srcSwitchIncluded;
 			}
 
-			switch (decision.getRoutingAction()) {
-			case NONE:
-				// don't do anything
-				return Command.CONTINUE;
-			case FORWARD_OR_FLOOD:
-			case FORWARD:
-				doForwardFlow(sw, pi, cntx, false);
-				return Command.CONTINUE;
-			case MULTICAST:
-				// treat as broadcast
-				doFlood(sw, pi, cntx);
-				return Command.CONTINUE;
-			case DROP:
-				doDropFlow(sw, pi, decision, cntx);
-				return Command.CONTINUE;
-			default:
-				log.error("Unexpected decision made for this packet-in={}", pi,
-						decision.getRoutingAction());
-				return Command.CONTINUE;
-			}
-		} else {
-			if (log.isTraceEnabled()) {
-				log.trace("No decision was made for PacketIn={}, forwarding",
-						pi);
+			// set the match.
+			fm.setMatch(wildcard(match, sw, wildcard_hints));
+
+			// set buffer id if it is the source switch
+			if (1 == indx) {
+				// Set the flag to request flow-mod removal notifications only
+				// for the
+				// source switch. The removal message is used to maintain the
+				// flow
+				// cache. Don't set the flag for ARP messages - TODO generalize
+				// check
+				if ((reqeustFlowRemovedNotifn)
+						&& (match.getDataLayerType() != Ethernet.TYPE_ARP)) {
+					/**
+					 * with new flow cache design, we don't need the flow
+					 * removal message from switch anymore
+					 * fm.setFlags(OFFlowMod.OFPFF_SEND_FLOW_REM);
+					 */
+					match.setWildcards(fm.getMatch().getWildcards());
+				}
 			}
 
-			if (eth.isBroadcast() || eth.isMulticast()) {
-				// For now we treat multicast as broadcast
-				doFlood(sw, pi, cntx);
-			} else {
-				// doForwardFlow(sw, pi, cntx, false);
-				checkAndDoForwardFlow(sw, pi, cntx, false);
+			short outPort = switchPortList.get(indx).getPortId();
+			short inPort = switchPortList.get(indx - 1).getPortId();
+			// set input and output ports on the switch
+			fm.getMatch().setInputPort(inPort);
+			((OFActionOutput) fm.getActions().get(0)).setPort(outPort);
+
+			try {
+				counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
+				if (log.isTraceEnabled()) {
+					log.trace("Pushing Route flowmod routeIndx={} "
+							+ "sw={} inPort={} outPort={}", new Object[] {
+							indx, sw, fm.getMatch().getInputPort(), outPort });
+				}
+				messageDamper.write(sw, fm, cntx);
+				if (doFlush) {
+					sw.flush();
+					counterStore.updateFlush();
+				}
+
+				// Push the packet out the source switch
+				if (sw.getId() == pinSwitch) {
+					// TODO: Instead of doing a packetOut here we could also
+					// send a flowMod with bufferId set....
+					pushPacket(sw, pi, false, outPort, cntx);
+					srcSwitchIncluded = true;
+				}
+			} catch (IOException e) {
+				log.error("Failure writing flow mod", e);
+			}
+
+			try {
+				fm = fm.clone();
+			} catch (CloneNotSupportedException e) {
+				log.error("Failure cloning flow mod", e);
 			}
 		}
 
-		return Command.CONTINUE;
+		return srcSwitchIncluded;
+	}
+
+	@Override
+	protected void pushPacket(IOFSwitch sw, OFPacketIn pi, boolean useBufferId,
+			short outport, FloodlightContext cntx) {
+		if (pi == null) {
+			return;
+		}
+
+		// The assumption here is (sw) is the switch that generated the
+		// packet-in. If the input port is the same as output port, then
+		// the packet-out should be ignored.
+		if (pi.getInPort() == outport) {
+			if (log.isDebugEnabled()) {
+				log.debug("Attempting to do packet-out to the same "
+						+ "interface as packet-in. Dropping packet. "
+						+ " SrcSwitch={}, pi={}", new Object[] { sw, pi });
+				return;
+			}
+		}
+
+		if (log.isTraceEnabled()) {
+			log.trace("PacketOut srcSwitch={} pi={}", new Object[] { sw, pi });
+		}
+
+		OFPacketOut po = (OFPacketOut) floodlightProvider.getOFMessageFactory()
+				.getMessage(OFType.PACKET_OUT);
+
+		// set actions
+		List<OFAction> actions = new ArrayList<OFAction>();
+		actions.add(new OFActionOutput(outport, (short) 0xffff));
+
+		po.setActions(actions).setActionsLength(
+				(short) OFActionOutput.MINIMUM_LENGTH);
+		short poLength = (short) (po.getActionsLength() + OFPacketOut.MINIMUM_LENGTH);
+
+		if (useBufferId) {
+			po.setBufferId(pi.getBufferId());
+		} else {
+			po.setBufferId(OFPacketOut.BUFFER_ID_NONE);
+		}
+
+		if (po.getBufferId() == OFPacketOut.BUFFER_ID_NONE) {
+			byte[] packetData = pi.getPacketData();
+			poLength += packetData.length;
+			po.setPacketData(packetData);
+		}
+
+		po.setInPort(pi.getInPort());
+		po.setLength(poLength);
+
+		try {
+			counterStore.updatePktOutFMCounterStoreLocal(sw, po);
+			messageDamper.write(sw, po, cntx);
+
+		} catch (IOException e) {
+			log.error("Failure writing packet out", e);
+		}
 	}
 
 	private void checkAndDoForwardFlow(IOFSwitch sw, OFPacketIn pi,
 			FloodlightContext cntx, boolean requestFlowRemovedNotifn) {
 		IDevice srcDevice = IDeviceService.fcStore.get(cntx,
 				IDeviceService.CONTEXT_SRC_DEVICE);
-		System.out.println("src:" + srcDevice.getDeviceKey());
 		IDevice dstDevice = IDeviceService.fcStore.get(cntx,
 				IDeviceService.CONTEXT_DST_DEVICE);
-		System.out.println("dst:" + dstDevice.getDeviceKey());
-		Collection<IDevice> devices = (Collection<IDevice>) this.deviceManager
-				.getAllDevices();
-		for (IDevice d : devices) {
-			System.out.println("key:" + d.getDeviceKey());
-			System.out.println("mac:" + d.getMACAddressString());
-			Integer[] ip = d.getIPv4Addresses();
-			System.out.print("ip:");
-			boolean first = true;
-			for(Integer i:ip){
-				if(first){
-					System.out.print(i);
-					first = false;
-				}
-				System.out.print("."+i);
-			}
-			System.out.println();
+
+		if (srcDevice == null || dstDevice == null) {
+			return;
 		}
+		/**
+		 * if not HTTP
+		 * 		return
+		 * if HTTP REQUEST
+		 * if matchs in proxy_cache_rule_table
+		 * 		dstDevice <-- proxyDevice
+		 * else //HTTP REPLAY
+		 * 		if dstDevice != proxyDevice ( accroding proxy_cache_table )
+		 * 			return
+		 * 		dstDevice <-- web server(according proxy_cache_table)
+		 */
+		if (sw.getId() != 1) {
+			 return;
+		}
+		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
+				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+//		System.out.println("(eth.getPayload() instanceof ARP):"
+//				+ (eth.getPayload() instanceof ARP));
+//		System.out.println("(eth.getPayload() instanceof IPv4):"
+//				+ (eth.getPayload() instanceof IPv4));
+//		System.out.println("src:" + srcDevice.getDeviceKey());
+//		System.out.println("dst:" + dstDevice.getDeviceKey());
+		// IDeviceService.fcStore.put(cntx, IDeviceService.CONTEXT_SRC_DEVICE,
+		// dstDevice);
+		// IDeviceService.fcStore.put(cntx, IDeviceService.CONTEXT_DST_DEVICE,
+		// srcDevice);
+
+		// Collection<IDevice> devices = (Collection<IDevice>)
+		// this.deviceManager
+		// .getAllDevices();
+		// for (IDevice d : devices) {
+		// System.out.println("key:" + d.getDeviceKey());
+		// System.out.println("mac:" + d.getMACAddressString());
+		// Integer[] ip = d.getIPv4Addresses();
+		// System.out.print("ip:");
+		// boolean first = true;
+		// for (Integer i : ip) {
+		// if (first) {
+		// System.out.print(i);
+		// first = false;
+		// }
+		// System.out.print("." + i);
+		// }
+		// System.out.println();
+		// }
 		doForwardFlow(sw, pi, cntx, false);
+		this.command = Command.STOP;
 	}
 
-	@Override
 	protected void doForwardFlow(IOFSwitch sw, OFPacketIn pi,
 			FloodlightContext cntx, boolean requestFlowRemovedNotifn) {
 		// TODO Auto-generated method stub
@@ -155,11 +342,6 @@ public class ProxyCache extends Forwarding implements IProxyCacheServer {
 
 			if (!on_same_island) {
 				// Flood since we don't know the dst device
-				if (log.isTraceEnabled()) {
-					log.trace("No first hop island found for destination "
-							+ "device {}, Action = flooding", dstDevice);
-				}
-				doFlood(sw, pi, cntx);
 				return;
 			}
 
@@ -252,7 +434,7 @@ public class ProxyCache extends Forwarding implements IProxyCacheServer {
 			}
 		} else {
 			// Flood since we don't know the dst device
-			doFlood(sw, pi, cntx);
+			// doFlood(sw, pi, cntx);
 		}
 	}
 
@@ -334,6 +516,76 @@ public class ProxyCache extends Forwarding implements IProxyCacheServer {
 			String dst, short dstport) {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	// IOFMessageListener
+	@Override
+	public String getName() {
+		// TODO Auto-generated method stub
+		return "proxycache";
+	}
+
+	@Override
+	public boolean isCallbackOrderingPrereq(OFType type, String name) {
+		// TODO Auto-generated method stub
+		return super.isCallbackOrderingPrereq(type, name);
+	}
+
+	@Override
+	public boolean isCallbackOrderingPostreq(OFType type, String name) {
+		// TODO Auto-generated method stub
+		// We need to go before forwarding
+		return (type.equals(OFType.PACKET_IN) && name.equals("forwarding"));
+	}
+
+	// IFloodlightModule method
+	@Override
+	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
+		// We don't export any services
+		return null;
+	}
+
+	@Override
+	public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
+		// We don't have any services
+		return null;
+	}
+
+	@Override
+	public Collection<Class<? extends IFloodlightService>> getModuleDependencies() {
+		Collection<Class<? extends IFloodlightService>> l = new ArrayList<Class<? extends IFloodlightService>>();
+		l.add(IFloodlightProviderService.class);
+		l.add(IDeviceService.class);
+		l.add(IRoutingService.class);
+		l.add(ITopologyService.class);
+		l.add(ICounterStoreService.class);
+		return l;
+	}
+
+	@Override
+	@LogMessageDocs({
+			@LogMessageDoc(level = "WARN", message = "Error parsing flow idle timeout, "
+					+ "using default of {number} seconds", explanation = "The properties file contains an invalid "
+					+ "flow idle timeout", recommendation = "Correct the idle timeout in the "
+					+ "properties file."),
+			@LogMessageDoc(level = "WARN", message = "Error parsing flow hard timeout, "
+					+ "using default of {number} seconds", explanation = "The properties file contains an invalid "
+					+ "flow hard timeout", recommendation = "Correct the hard timeout in the "
+					+ "properties file.") })
+	public void init(FloodlightModuleContext context)
+			throws FloodlightModuleException {
+		super.init();
+		this.floodlightProvider = context
+				.getServiceImpl(IFloodlightProviderService.class);
+		this.deviceManager = context.getServiceImpl(IDeviceService.class);
+		this.routingEngine = context.getServiceImpl(IRoutingService.class);
+		this.topology = context.getServiceImpl(ITopologyService.class);
+		this.counterStore = context.getServiceImpl(ICounterStoreService.class);
+	}
+
+	@Override
+	public void startUp(FloodlightModuleContext context) {
+		super.startUp();
 	}
 
 }

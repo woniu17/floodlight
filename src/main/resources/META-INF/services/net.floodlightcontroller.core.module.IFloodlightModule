@@ -21,6 +21,7 @@ net.floodlightcontroller.debugcounter.DebugCounter
 net.floodlightcontroller.debugevent.DebugEvent
 net.floodlightcontroller.threadpool.ThreadPool
 net.floodlightcontroller.ui.web.StaticWebRoutable
+net.floodlightcontroller.virtualnetwork.VirtualNetworkFilter
 net.floodlightcontroller.firewall.Firewall
 net.floodlightcontroller.loadbalancer.LoadBalancer
 org.sdnplatform.sync.internal.SyncManager

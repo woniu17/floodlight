@@ -71,7 +71,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
                                           FloodlightContext cntx) {
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                    IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-
+        System.out.println("Forwarding.processPacketInMessage!!!!!");
         // If a decision has been made we obey it
         // otherwise we just forward
         if (decision != null) {
@@ -161,6 +161,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
     protected void doForwardFlow(IOFSwitch sw, OFPacketIn pi,
                                  FloodlightContext cntx,
                                  boolean requestFlowRemovedNotifn) {
+    	System.out.println("Forwarding.doForwardFlow!!!!!!!");
         OFMatch match = new OFMatch();
         match.loadFromPacket(pi.getPacketData(), pi.getInPort());
 
@@ -173,6 +174,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
             IDevice srcDevice =
                     IDeviceService.fcStore.
                         get(cntx, IDeviceService.CONTEXT_SRC_DEVICE);
+            
             Long srcIsland = topology.getL2DomainId(sw.getId());
 
             if (srcDevice == null) {
@@ -184,7 +186,13 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
                           sw.getStringId(), pi.getInPort());
                 return;
             }
-
+			//////////////////////////////////////////////
+//			System.out.println("src:" + srcDevice.getDeviceKey());
+//			System.out.println("dst:" + dstDevice.getDeviceKey());
+//			IDevice tmp = srcDevice;
+//			srcDevice = dstDevice;
+//			dstDevice = tmp;
+			//////////////////////////////////////////////
             // Validate that we have a destination known on the same island
             // Validate that the source and destination are not on the same switchport
             boolean on_same_island = false;
@@ -220,6 +228,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
                 }
                 return;
             }
+            
 
             // Install all the routes where both src and dst have attachment
             // points.  Since the lists are stored in sorted order we can

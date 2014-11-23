@@ -364,6 +364,7 @@ public class Firewall implements IFirewallService, IOFMessageListener,
 
     @Override
     public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
+//    	System.out.println("Firewall.receive()!!!!!!!!!!!!!!");
         if (!this.enabled)
             return Command.CONTINUE;
 

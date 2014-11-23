@@ -347,6 +347,7 @@ public class VirtualNetworkFilter
 
     @Override
     public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
+    	System.out.println("VirtualNetworkFilter.receive()!!!!!!!!!!!!!!");
         switch (msg.getType()) {
             case PACKET_IN:
                 return processPacketIn(sw, (OFPacketIn)msg, cntx);

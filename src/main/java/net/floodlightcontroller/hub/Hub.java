@@ -65,6 +65,7 @@ public class Hub implements IFloodlightModule, IOFMessageListener {
     }
 
     public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
+    	System.out.println("Hub.receive()!!!!!!!!!!!!!!");
         OFPacketIn pi = (OFPacketIn) msg;
         OFPacketOut po = (OFPacketOut) floodlightProvider.getOFMessageFactory()
                 .getMessage(OFType.PACKET_OUT);

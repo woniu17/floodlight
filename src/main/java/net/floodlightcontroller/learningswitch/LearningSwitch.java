@@ -505,7 +505,8 @@ public class LearningSwitch
 
     @Override
     public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-        switch (msg.getType()) {
+    	System.out.println("LearningSwitch.receive()!!!!!!!!!!!!!!");
+    	switch (msg.getType()) {
             case PACKET_IN:
                 return this.processPacketInMessage(sw, (OFPacketIn) msg, cntx);
             case FLOW_REMOVED:
