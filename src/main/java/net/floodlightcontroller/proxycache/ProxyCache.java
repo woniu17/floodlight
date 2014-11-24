@@ -1,9 +1,10 @@
-package cn.edu.fzu.cmcs.emil;
+package net.floodlightcontroller.proxycache;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,12 +24,10 @@ import net.floodlightcontroller.counter.ICounterStoreService;
 import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
-import net.floodlightcontroller.devicemanager.internal.DeviceIterator;
 import net.floodlightcontroller.firewall.FirewallRule;
-import net.floodlightcontroller.forwarding.Forwarding;
-import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Ethernet;
-import net.floodlightcontroller.packet.IPv4;
+import net.floodlightcontroller.proxycache.web.ProxyCacheWebRoutable;
+import net.floodlightcontroller.restserver.IRestApiService;
 import net.floodlightcontroller.routing.ForwardingBase;
 import net.floodlightcontroller.routing.IRoutingDecision;
 import net.floodlightcontroller.routing.IRoutingService;
@@ -44,10 +43,11 @@ import org.openflow.protocol.OFType;
 import org.openflow.protocol.action.OFAction;
 import org.openflow.protocol.action.OFActionOutput;
 
-public class ProxyCache extends ForwardingBase implements IProxyCacheServer,
+public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 		IFloodlightModule {
 
 	private Command command;
+	protected IRestApiService restApi;
 
 	// ForwardingBase
 	@Override
@@ -248,27 +248,22 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheServer,
 			return;
 		}
 		/**
-		 * if not HTTP
-		 * 		return
-		 * if HTTP REQUEST
-		 * if matchs in proxy_cache_rule_table
-		 * 		dstDevice <-- proxyDevice
-		 * else //HTTP REPLAY
-		 * 		if dstDevice != proxyDevice ( accroding proxy_cache_table )
-		 * 			return
-		 * 		dstDevice <-- web server(according proxy_cache_table)
+		 * if not HTTP return if HTTP REQUEST if matchs in
+		 * proxy_rule_match_table dstDevice <-- proxyDevice else //HTTP REPLAY
+		 * if dstDevice != proxyDevice ( accroding proxy_cache_table ) return
+		 * dstDevice <-- web server(according proxy_cache_table)
 		 */
 		if (sw.getId() != 1) {
-			 return;
+			return;
 		}
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-//		System.out.println("(eth.getPayload() instanceof ARP):"
-//				+ (eth.getPayload() instanceof ARP));
-//		System.out.println("(eth.getPayload() instanceof IPv4):"
-//				+ (eth.getPayload() instanceof IPv4));
-//		System.out.println("src:" + srcDevice.getDeviceKey());
-//		System.out.println("dst:" + dstDevice.getDeviceKey());
+		// System.out.println("(eth.getPayload() instanceof ARP):"
+		// + (eth.getPayload() instanceof ARP));
+		// System.out.println("(eth.getPayload() instanceof IPv4):"
+		// + (eth.getPayload() instanceof IPv4));
+		// System.out.println("src:" + srcDevice.getDeviceKey());
+		// System.out.println("dst:" + dstDevice.getDeviceKey());
 		// IDeviceService.fcStore.put(cntx, IDeviceService.CONTEXT_SRC_DEVICE,
 		// dstDevice);
 		// IDeviceService.fcStore.put(cntx, IDeviceService.CONTEXT_DST_DEVICE,
@@ -460,7 +455,7 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheServer,
 	@Override
 	public void addProxy(int host, int cache) {
 		// TODO Auto-generated method stub
-
+		System.out.println("addProxy!!!!!!");
 	}
 
 	@Override
@@ -541,14 +536,16 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheServer,
 	// IFloodlightModule method
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
-		// We don't export any services
-		return null;
+		Collection<Class<? extends IFloodlightService>> l = new ArrayList<Class<? extends IFloodlightService>>();
+		l.add(IProxyCacheService.class);
+		return l;
 	}
 
 	@Override
 	public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
-		// We don't have any services
-		return null;
+		Map<Class<? extends IFloodlightService>, IFloodlightService> m = new HashMap<Class<? extends IFloodlightService>, IFloodlightService>();
+		m.put(IProxyCacheService.class, this);
+		return m;
 	}
 
 	@Override
@@ -559,6 +556,7 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheServer,
 		l.add(IRoutingService.class);
 		l.add(ITopologyService.class);
 		l.add(ICounterStoreService.class);
+		l.add(IRestApiService.class);
 		return l;
 	}
 
@@ -581,11 +579,17 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheServer,
 		this.routingEngine = context.getServiceImpl(IRoutingService.class);
 		this.topology = context.getServiceImpl(ITopologyService.class);
 		this.counterStore = context.getServiceImpl(ICounterStoreService.class);
+		this.restApi = context.getServiceImpl(IRestApiService.class);
 	}
 
 	@Override
 	public void startUp(FloodlightModuleContext context) {
 		super.startUp();
+		if (restApi != null) {
+            restApi.addRestletRoutable(new ProxyCacheWebRoutable());
+        } else{
+        	System.out.println("ProxyCache.startUp: restApi == null");
+        }
 	}
 
 }

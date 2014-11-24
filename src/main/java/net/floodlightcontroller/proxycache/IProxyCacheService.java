@@ -1,4 +1,4 @@
-package cn.edu.fzu.cmcs.emil;
+package net.floodlightcontroller.proxycache;
 
 import java.util.List;
 import java.util.Set;
@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.firewall.FirewallRule;
 
-public interface IProxyCacheServer extends IFloodlightService {
+public interface IProxyCacheService extends IFloodlightService {
 	
 	void addCache(int cache);
 	

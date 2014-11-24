@@ -45,11 +45,17 @@ window.HostCollection = Backbone.Collection.extend({
                 //console.log("old_ids" + old_ids);
                 _.each(data, function(h) {
                     h.id = h.mac[0];
+                    console.log('h.id:'+h.id);
+                    console.log('h.mac.length:'+h.mac.length);
+                    console.log('h.deviceKey:'+h.deviceKey);
+                    console.log('h[\'attachmentPoint\'].length:' + h['attachmentPoint'].length);
+                    //h.ipv4 = '1.2.3.4';
+                    console.log('h.ipv4:'+h.ipv4);
                     old_ids = _.without(old_ids, h.id);
                     if (h['attachmentPoint'].length > 0) {
                         h.swport = _.reduce(h['attachmentPoint'], function(memo, ap) {
                             return memo + ap.switchDPID + "-" + ap.port + " "}, "");
-                        //console.log(h.swport);
+                        console.log('h.swport:'+h.swport);
                         h.lastSeen = new Date(h.lastSeen).toLocaleString();
                         self.add(h, {silent: true});
                     }
