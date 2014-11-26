@@ -26,6 +26,8 @@ import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.firewall.FirewallRule;
 import net.floodlightcontroller.packet.Ethernet;
+import net.floodlightcontroller.packet.IPv4;
+import net.floodlightcontroller.packet.TCP;
 import net.floodlightcontroller.proxycache.web.ProxyCacheWebRoutable;
 import net.floodlightcontroller.restserver.IRestApiService;
 import net.floodlightcontroller.routing.ForwardingBase;
@@ -48,6 +50,12 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 
 	private Command command;
 	protected IRestApiService restApi;
+	// Map.key = client_ip
+	private Map<String, TProxyRule> rule_map;
+	// Map.key = client_ip + client_port
+	private Map<String, TProxyForwarding> fwd_map;
+	//
+	private List<TProxyServer> proxy_list;
 
 	// ForwardingBase
 	@Override
@@ -58,22 +66,6 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
-		// // If a decision has been made we obey it
-		// // otherwise we just forward
-		// if (decision != null) {
-		//
-		// switch (decision.getRoutingAction()) {
-		// case NONE:
-		// // don't do anything
-		// return Command.CONTINUE;
-		// case FORWARD_OR_FLOOD:
-		// case FORWARD:
-		// checkAndDoForwardFlow(sw, pi, cntx, false);
-		// return Command.CONTINUE;
-		// default:
-		// return Command.CONTINUE;
-		// }
-		// }
 		command = Command.CONTINUE;
 		checkAndDoForwardFlow(sw, pi, cntx, false);
 
@@ -248,16 +240,68 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 			return;
 		}
 		/**
-		 * if not HTTP return if HTTP REQUEST if matchs in
-		 * proxy_rule_match_table dstDevice <-- proxyDevice else //HTTP REPLAY
-		 * if dstDevice != proxyDevice ( accroding proxy_cache_table ) return
-		 * dstDevice <-- web server(according proxy_cache_table)
+		 * if not HTTP return if HTTP REQUEST if matchs in proxy_rule_table
+		 * dstDevice <-- proxyDevice else //HTTP REPLAY if dstDevice !=
+		 * proxyDevice ( accroding proxy_forwarding_table ) return dstDevice <--
+		 * web server(according proxy_cache_table)
 		 */
+		// if not HTTP return
+		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
+				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+		if (!(eth.getPayload() instanceof IPv4)) {
+			return;
+		}
+		IPv4 ipv4 = (IPv4) eth.getPayload();
+		if (!(ipv4.getPayload() instanceof TCP)) {
+			return;
+		}
+		TCP tcp = (TCP) ipv4.getPayload();
+		Short src_port = tcp.getSourcePort();
+		Short dst_port = tcp.getDestinationPort();
+		if ((src_port != 80) && (dst_port != 80)) {
+			return;
+		}
+		Integer src_ip = ipv4.getSourceAddress();
+		Integer dst_ip = ipv4.getDestinationAddress();
+		// if HTTP request
+		if (dst_port == 80) {
+			// if match in rule_map
+			String key = src_ip + "";
+			if (rule_map == null) {
+				return;
+			}
+			TProxyRule rule = rule_map.get(key);
+			if (rule == null) {
+				return;
+			}
+			TProxyForwarding fwd = new TProxyForwarding(src_ip, src_port,
+					dst_ip, dst_port, rule.getProxy());
+			if (fwd_map == null) {
+				fwd_map = new HashMap<String, TProxyForwarding>();
+			}
+			key = src_ip + ":" + src_port + "";
+			fwd_map.put(key, fwd);
+			// dstDevice <- proxy.device
+			IDeviceService.fcStore.put(cntx, IDeviceService.CONTEXT_DST_DEVICE,
+					rule.getProxy().getDevice());
+			//
+		} else {
+		// else if HTTP response
+			//if match in fwd_map
+			if(fwd_map == null){
+				return;
+			}
+			String key = src_ip + ":" + src_port + "";
+			TProxyForwarding fwd = fwd_map.get(key);
+			if(fwd == null){
+				return;
+			}
+			//
+		}
+
 		if (sw.getId() != 1) {
 			return;
 		}
-		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
-				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 		// System.out.println("(eth.getPayload() instanceof ARP):"
 		// + (eth.getPayload() instanceof ARP));
 		// System.out.println("(eth.getPayload() instanceof IPv4):"
@@ -586,10 +630,10 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 	public void startUp(FloodlightModuleContext context) {
 		super.startUp();
 		if (restApi != null) {
-            restApi.addRestletRoutable(new ProxyCacheWebRoutable());
-        } else{
-        	System.out.println("ProxyCache.startUp: restApi == null");
-        }
+			restApi.addRestletRoutable(new ProxyCacheWebRoutable());
+		} else {
+			System.out.println("ProxyCache.startUp: restApi == null");
+		}
 	}
 
 }

@@ -6,7 +6,7 @@ import org.restlet.data.Form;
 import org.restlet.resource.Get;
 import org.restlet.resource.ServerResource;
 
-public class ProxyCacheResource extends ServerResource {
+public class ProxyCacheAddProxyResource extends ServerResource {
 	
 	@Get("json")
 	public String addProxy(){
