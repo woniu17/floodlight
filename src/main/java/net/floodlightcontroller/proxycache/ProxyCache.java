@@ -42,7 +42,13 @@ import org.openflow.protocol.OFMatch;
 import org.openflow.protocol.OFPacketIn;
 import org.openflow.protocol.OFPacketOut;
 import org.openflow.protocol.OFType;
+import org.openflow.protocol.Wildcards;
+import org.openflow.protocol.Wildcards.Flag;
 import org.openflow.protocol.action.OFAction;
+import org.openflow.protocol.action.OFActionDataLayerDestination;
+import org.openflow.protocol.action.OFActionDataLayerSource;
+import org.openflow.protocol.action.OFActionNetworkLayerDestination;
+import org.openflow.protocol.action.OFActionNetworkLayerSource;
 import org.openflow.protocol.action.OFActionOutput;
 
 public class ProxyCache extends ForwardingBase implements IProxyCacheService,
@@ -58,25 +64,45 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 	private List<TProxyServer> proxy_list;
 
 	// ForwardingBase
+
 	@Override
 	public Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi,
 			IRoutingDecision decision, FloodlightContext cntx) {
 		// TODO Auto-generated method stub
-		System.out.println("ProxyCache.processPacketInMessage!!!!!!!");
+//		System.out.println("ProxyCache.processPacketInMessage!!!!!!!");
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
+		// for temp
+		if (proxy_list == null || proxy_list.size() < 1) {
+			proxy_list = new ArrayList<TProxyServer>();
+			Collection<IDevice> devices = (Collection<IDevice>) this.deviceManager
+					.getAllDevices();
+			for (IDevice d : devices) {
+				if ("00:00:00:00:00:04".equals(d.getMACAddressString())) {
+					Integer[] ip = d.getIPv4Addresses();
+					System.out.println("mac:" + d.getMACAddressString());
+					if (ip == null || ip.length < 1)
+						break;
+					System.out.println("ip[0]:" + IPv4.fromIPv4Address(ip[0]));
+					TProxyServer proxy = new TProxyServer(d);
+					proxy_list.add(proxy);
+				}
+
+			}
+		}
+		// for temp
 		command = Command.CONTINUE;
-		checkAndDoForwardFlow(sw, pi, cntx, false);
+		check(sw, pi, cntx, false);
 
 		return command;
 	}
 
-	@Override
 	public boolean pushRoute(Route route, OFMatch match,
 			Integer wildcard_hints, OFPacketIn pi, long pinSwitch, long cookie,
 			FloodlightContext cntx, boolean reqeustFlowRemovedNotifn,
-			boolean doFlush, short flowModCommand) {
+			boolean doFlush, short flowModCommand, List<OFAction> action_list) {
+
 		boolean srcSwitchIncluded = false;
 		OFFlowMod fm = (OFFlowMod) floodlightProvider.getOFMessageFactory()
 				.getMessage(OFType.FLOW_MOD);
@@ -97,7 +123,8 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 								+ OFActionOutput.MINIMUM_LENGTH);
 
 		List<NodePortTuple> switchPortList = route.getPath();
-		for (int indx = 1; indx > 0; indx -= 2) {
+
+		for (int indx = switchPortList.size() - 1; indx > 0; indx -= 2) {
 			// indx and indx-1 will always have the same switch DPID.
 			long switchDPID = switchPortList.get(indx).getNodeId();
 			IOFSwitch sw = floodlightProvider.getSwitch(switchDPID);
@@ -136,7 +163,28 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 			// set input and output ports on the switch
 			fm.getMatch().setInputPort(inPort);
 			((OFActionOutput) fm.getActions().get(0)).setPort(outPort);
-
+			// add for proxycache begin
+			// if the switch directly connects client or proxy
+			int action_length = 0;
+			if (1 == indx) {
+				for (OFAction a : action_list) {
+					fm.getActions().add(0, a);
+					if (a instanceof OFActionOutput) {
+						action_length += OFActionOutput.MINIMUM_LENGTH;
+					} else if (a instanceof OFActionNetworkLayerDestination) {
+						action_length += OFActionNetworkLayerDestination.MINIMUM_LENGTH;
+					} else if (a instanceof OFActionNetworkLayerSource) {
+						action_length += OFActionNetworkLayerSource.MINIMUM_LENGTH;
+					} else if (a instanceof OFActionDataLayerDestination) {
+						action_length += OFActionDataLayerDestination.MINIMUM_LENGTH;
+					} else if (a instanceof OFActionDataLayerSource) {
+						action_length += OFActionDataLayerSource.MINIMUM_LENGTH;
+					}
+				}
+			}
+			fm.setLengthU(action_length + OFFlowMod.MINIMUM_LENGTH
+					+ OFActionOutput.MINIMUM_LENGTH);
+			// add for proxycache end
 			try {
 				counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
 				if (log.isTraceEnabled()) {
@@ -154,7 +202,7 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 				if (sw.getId() == pinSwitch) {
 					// TODO: Instead of doing a packetOut here we could also
 					// send a flowMod with bufferId set....
-					pushPacket(sw, pi, false, outPort, cntx);
+					pushPacket(sw, pi, false, outPort, cntx, action_list);
 					srcSwitchIncluded = true;
 				}
 			} catch (IOException e) {
@@ -166,14 +214,15 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 			} catch (CloneNotSupportedException e) {
 				log.error("Failure cloning flow mod", e);
 			}
+			// if the switch directly connects client or proxy
 		}
 
 		return srcSwitchIncluded;
 	}
 
-	@Override
 	protected void pushPacket(IOFSwitch sw, OFPacketIn pi, boolean useBufferId,
-			short outport, FloodlightContext cntx) {
+			short outport, FloodlightContext cntx, List<OFAction> action_list) {
+
 		if (pi == null) {
 			return;
 		}
@@ -199,10 +248,33 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 
 		// set actions
 		List<OFAction> actions = new ArrayList<OFAction>();
+		// add for proxycache begin
+		short action_length = 0;
+		for (OFAction a : action_list) {
+			actions.add(a);
+			if (a instanceof OFActionOutput) {
+				action_length += OFActionOutput.MINIMUM_LENGTH;
+			} else if (a instanceof OFActionNetworkLayerDestination) {
+				action_length += OFActionNetworkLayerDestination.MINIMUM_LENGTH;
+			} else if (a instanceof OFActionNetworkLayerSource) {
+				action_length += OFActionNetworkLayerSource.MINIMUM_LENGTH;
+			} else if (a instanceof OFActionDataLayerDestination) {
+				action_length += OFActionDataLayerDestination.MINIMUM_LENGTH;
+			} else if (a instanceof OFActionDataLayerSource) {
+				action_length += OFActionDataLayerSource.MINIMUM_LENGTH;
+			}
+		}
+		// add for proxycache end
 		actions.add(new OFActionOutput(outport, (short) 0xffff));
-
-		po.setActions(actions).setActionsLength(
-				(short) OFActionOutput.MINIMUM_LENGTH);
+		// add for proxycache begin
+		// po.setActions(actions).setActionsLength(
+		// (short) OFActionOutput.MINIMUM_LENGTH);
+//		System.out.println("actions.size: " + actions.size());
+		po.setActions(actions)
+				.setActionsLength(
+						(short) (action_length + (short) OFActionOutput.MINIMUM_LENGTH));
+//		System.out.println("po.getActionsLength: " + po.getActionsLength());
+		// add for proxycache end
 		short poLength = (short) (po.getActionsLength() + OFPacketOut.MINIMUM_LENGTH);
 
 		if (useBufferId) {
@@ -223,14 +295,13 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 		try {
 			counterStore.updatePktOutFMCounterStoreLocal(sw, po);
 			messageDamper.write(sw, po, cntx);
-
 		} catch (IOException e) {
 			log.error("Failure writing packet out", e);
 		}
 	}
 
-	private void checkAndDoForwardFlow(IOFSwitch sw, OFPacketIn pi,
-			FloodlightContext cntx, boolean requestFlowRemovedNotifn) {
+	private void check(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx,
+			boolean requestFlowRemovedNotifn) {
 		IDevice srcDevice = IDeviceService.fcStore.get(cntx,
 				IDeviceService.CONTEXT_SRC_DEVICE);
 		IDevice dstDevice = IDeviceService.fcStore.get(cntx,
@@ -248,60 +319,100 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 		// if not HTTP return
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-		if (!(eth.getPayload() instanceof IPv4)) {
+		byte[] src_mac = eth.getSourceMACAddress();
+		byte[] dst_mac = eth.getDestinationMACAddress();
+		if (!(eth.getPayload() instanceof IPv4))
 			return;
-		}
 		IPv4 ipv4 = (IPv4) eth.getPayload();
-		if (!(ipv4.getPayload() instanceof TCP)) {
+		if (!(ipv4.getPayload() instanceof TCP))
 			return;
-		}
 		TCP tcp = (TCP) ipv4.getPayload();
 		Short src_port = tcp.getSourcePort();
 		Short dst_port = tcp.getDestinationPort();
-		if ((src_port != 80) && (dst_port != 80)) {
+		if ((src_port != 80) && (dst_port != 80))
 			return;
-		}
 		Integer src_ip = ipv4.getSourceAddress();
 		Integer dst_ip = ipv4.getDestinationAddress();
+
+		ArrayList<OFAction> action_list;
+		Integer wildcard_hints = 0;
 		// if HTTP request
 		if (dst_port == 80) {
 			// if match in rule_map
 			String key = src_ip + "";
-			if (rule_map == null) {
+			// if (rule_map == null)
+			// return;
+			// TProxyRule rule = rule_map.get(key);
+			// if (rule == null)
+			// return;
+			// TProxyForwarding fwd = new TProxyForwarding(src_ip, src_port,
+			// dst_ip, dst_port, rule.getProxy());
+			// for temp begin
+			if (proxy_list == null || proxy_list.size() < 1)
 				return;
-			}
-			TProxyRule rule = rule_map.get(key);
-			if (rule == null) {
-				return;
-			}
 			TProxyForwarding fwd = new TProxyForwarding(src_ip, src_port,
-					dst_ip, dst_port, rule.getProxy());
-			if (fwd_map == null) {
+					src_mac, dst_ip, dst_port, dst_mac, proxy_list.get(0));
+			// for temp end
+			if (fwd_map == null)
 				fwd_map = new HashMap<String, TProxyForwarding>();
-			}
+
 			key = src_ip + ":" + src_port + "";
-			fwd_map.put(key, fwd);
+//			System.out.println("key:" + key);
+			//System.out.println("dst_ip:" + new String(IPv4.toIPv4AddressBytes(dst_ip)));
+//			System.out.println("dst_mac: " + Ethernet.toLong(dst_mac));
+			
+			//prevent no-first switch packet-in(in that case, dst is proxy)
+			if(fwd_map.containsKey(key))
+				fwd = fwd_map.get(key);
+			else
+				fwd_map.put(key, fwd);
 			// dstDevice <- proxy.device
-			IDeviceService.fcStore.put(cntx, IDeviceService.CONTEXT_DST_DEVICE,
-					rule.getProxy().getDevice());
-			//
+			dstDevice = fwd.getProxy().getDevice();
+			// First switch Actions: dst_ip <- proxy.ip; dst_mac <- proxy.mac
+			action_list = new ArrayList<OFAction>();
+			// OFAction action = new OFActionDataLayerDestination(fwd.getProxy()
+			// .getMAC().getBytes());
+			OFAction action = new OFActionDataLayerDestination(
+					Ethernet.toMACAddress(fwd.getProxy().getMAC()));
+			// System.out.println("getBytes: " +
+			// fwd.getProxy().getMAC().getBytes().length);
+			// System.out.println("toMACAdress: " +
+			// Ethernet.toMACAddress(fwd.getProxy().getMAC()).length);
+			action_list.add(action);
+			action = new OFActionNetworkLayerDestination(fwd.getProxy().getIP());
+			action_list.add(action);
+			// http request: client(src_ip, src_port),server(dst_port)
+			wildcard_hints = Wildcards.FULL.matchOn(Flag.DL_TYPE)
+					.matchOn(Flag.NW_PROTO).withNwSrcMask(24).withNwDstMask(8)
+					.matchOn(Flag.NW_SRC).matchOn(Flag.TP_SRC)
+					.matchOn(Flag.TP_DST).getInt();
 		} else {
-		// else if HTTP response
-			//if match in fwd_map
-			if(fwd_map == null){
+			// else if HTTP response
+			// if match in fwd_map
+			if (fwd_map == null)
 				return;
-			}
-			String key = src_ip + ":" + src_port + "";
+			String key = dst_ip + ":" + dst_port + "";
+//			System.out.println("key:" + key);
 			TProxyForwarding fwd = fwd_map.get(key);
-			if(fwd == null){
+			if (fwd == null)
 				return;
-			}
-			//
+			// srcDevice <- proxy.device
+			srcDevice = fwd.getProxy().getDevice();
+			// First switch Actions: src_ip <- fwd.server_ip;
+			action_list = new ArrayList<OFAction>();
+			//System.out.println("fwd.getServer_ip(): " + new String(IPv4.toIPv4AddressBytes(fwd.getServer_ip())));
+			System.out.println("fwd.getServer_mac(): " + Ethernet.toLong(fwd.getServer_mac()));
+			OFAction action = new OFActionDataLayerSource(fwd.getServer_mac());
+			action_list.add(action);
+			action = new OFActionNetworkLayerSource(fwd.getServer_ip());
+			action_list.add(action);
+			// http response: client(dst_ip, dst_port),server(dst_port)
+			wildcard_hints = Wildcards.FULL.matchOn(Flag.DL_TYPE)
+					.matchOn(Flag.NW_PROTO).withNwSrcMask(24).withNwDstMask(8)
+					.matchOn(Flag.NW_DST).matchOn(Flag.TP_DST)
+					.matchOn(Flag.TP_SRC).getInt();
 		}
 
-		if (sw.getId() != 1) {
-			return;
-		}
 		// System.out.println("(eth.getPayload() instanceof ARP):"
 		// + (eth.getPayload() instanceof ARP));
 		// System.out.println("(eth.getPayload() instanceof IPv4):"
@@ -331,24 +442,28 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 		// }
 		// System.out.println();
 		// }
-		doForwardFlow(sw, pi, cntx, false);
+		doForwardFlow(sw, pi, cntx, false, srcDevice, dstDevice, action_list,
+				wildcard_hints);
 		this.command = Command.STOP;
 	}
 
 	protected void doForwardFlow(IOFSwitch sw, OFPacketIn pi,
-			FloodlightContext cntx, boolean requestFlowRemovedNotifn) {
+			FloodlightContext cntx, boolean requestFlowRemovedNotifn,
+			IDevice srcDevice, IDevice dstDevice, List<OFAction> action_list,
+			Integer wildcard_hints) {
 		// TODO Auto-generated method stub
+		System.out.println("ProxyCache.doForwardFlow!!!!!!!");
 		// super.doForwardFlow(sw, pi, cntx, requestFlowRemovedNotifn);
 		OFMatch match = new OFMatch();
 		match.loadFromPacket(pi.getPacketData(), pi.getInPort());
 
 		// Check if we have the location of the destination
-		IDevice dstDevice = IDeviceService.fcStore.get(cntx,
-				IDeviceService.CONTEXT_DST_DEVICE);
+		// IDevice dstDevice = IDeviceService.fcStore.get(cntx,
+		// IDeviceService.CONTEXT_DST_DEVICE);
 
 		if (dstDevice != null) {
-			IDevice srcDevice = IDeviceService.fcStore.get(cntx,
-					IDeviceService.CONTEXT_SRC_DEVICE);
+			// IDevice srcDevice = IDeviceService.fcStore.get(cntx,
+			// IDeviceService.CONTEXT_SRC_DEVICE);
 			Long srcIsland = topology.getL2DomainId(sw.getId());
 
 			if (srcDevice == null) {
@@ -435,32 +550,32 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 									FORWARDING_APP_ID, 0);
 
 							// if there is prior routing decision use wildcard
-							Integer wildcard_hints = null;
-							IRoutingDecision decision = null;
-							if (cntx != null) {
-								decision = IRoutingDecision.rtStore.get(cntx,
-										IRoutingDecision.CONTEXT_DECISION);
-							}
-							if (decision != null) {
-								wildcard_hints = decision.getWildcards();
-							} else {
-								// L2 only wildcard if there is no prior route
-								// decision
-								wildcard_hints = ((Integer) sw
-										.getAttribute(IOFSwitch.PROP_FASTWILDCARDS))
-										.intValue()
-										& ~OFMatch.OFPFW_IN_PORT
-										& ~OFMatch.OFPFW_DL_VLAN
-										& ~OFMatch.OFPFW_DL_SRC
-										& ~OFMatch.OFPFW_DL_DST
-										& ~OFMatch.OFPFW_NW_SRC_MASK
-										& ~OFMatch.OFPFW_NW_DST_MASK;
-							}
+							// Integer wildcard_hints = null;
+							// IRoutingDecision decision = null;
+							// if (cntx != null) {
+							// decision = IRoutingDecision.rtStore.get(cntx,
+							// IRoutingDecision.CONTEXT_DECISION);
+							// }
+							// if (decision != null) {
+							// wildcard_hints = decision.getWildcards();
+							// } else {
+							// // L2 only wildcard if there is no prior route
+							// // decision
+							// wildcard_hints = ((Integer) sw
+							// .getAttribute(IOFSwitch.PROP_FASTWILDCARDS))
+							// .intValue()
+							// & ~OFMatch.OFPFW_IN_PORT
+							// & ~OFMatch.OFPFW_DL_VLAN
+							// & ~OFMatch.OFPFW_DL_SRC
+							// & ~OFMatch.OFPFW_DL_DST
+							// & ~OFMatch.OFPFW_NW_SRC_MASK
+							// & ~OFMatch.OFPFW_NW_DST_MASK;
+							// }
 
 							pushRoute(route, match, wildcard_hints, pi,
 									sw.getId(), cookie, cntx,
 									requestFlowRemovedNotifn, false,
-									OFFlowMod.OFPFC_ADD);
+									OFFlowMod.OFPFC_ADD, action_list);
 						}
 					}
 					iSrcDaps++;

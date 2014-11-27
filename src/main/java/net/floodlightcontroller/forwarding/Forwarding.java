@@ -71,7 +71,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
                                           FloodlightContext cntx) {
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                    IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-        System.out.println("Forwarding.processPacketInMessage!!!!!");
+//        System.out.println("Forwarding.processPacketInMessage!!!!!");
         // If a decision has been made we obey it
         // otherwise we just forward
         if (decision != null) {
@@ -161,7 +161,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
     protected void doForwardFlow(IOFSwitch sw, OFPacketIn pi,
                                  FloodlightContext cntx,
                                  boolean requestFlowRemovedNotifn) {
-    	System.out.println("Forwarding.doForwardFlow!!!!!!!");
+//    	System.out.println("Forwarding.doForwardFlow!!!!!!!");
         OFMatch match = new OFMatch();
         match.loadFromPacket(pi.getPacketData(), pi.getInPort());
 

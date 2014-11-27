@@ -2,52 +2,72 @@ package net.floodlightcontroller.proxycache;
 
 public class TProxyForwarding {
 
-	private Integer src_ip;
-	private Short src_port;
-	private Integer dst_ip;
-	private Short dst_port;
+	private Integer client_ip;
+	private Short client_port;
+	private byte[] client_mac;
+	private Integer server_ip;
+	private Short server_port;
+	private byte[] server_mac;
 
 	private TProxyServer proxy;
 
-	public TProxyForwarding(Integer src_ip, Short src_port, Integer dst_ip,
-			Short dst_port, TProxyServer proxy) {
-		this.src_ip = src_ip;
-		this.src_port = dst_port;
-		this.dst_ip = dst_ip;
-		this.dst_port = dst_port;
+	public TProxyForwarding(Integer client_ip, Short client_port, byte[] client_mac, Integer server_ip,
+			Short server_port, byte[] server_mac, TProxyServer proxy) {
+		this.client_ip = client_ip;
+		this.client_port = client_port;
+		this.client_mac = client_mac;
+		this.server_ip = server_ip;
+		this.server_port = server_port;
+		this.server_mac = server_mac;
 		this.proxy = proxy;
 	}
 
-	public Integer getSrc_ip() {
-		return src_ip;
+	public Integer getClient_ip() {
+		return client_ip;
 	}
 
-	public void setSrc_ip(Integer src_ip) {
-		this.src_ip = src_ip;
+	public void setClient_ip(Integer client_ip) {
+		this.client_ip = client_ip;
 	}
 
-	public Short getSrc_port() {
-		return src_port;
+	public Short getClient_port() {
+		return client_port;
 	}
 
-	public void setSrc_port(Short src_port) {
-		this.src_port = src_port;
+	public void setClient_port(Short client_port) {
+		this.client_port = client_port;
 	}
 
-	public Integer getDst_ip() {
-		return dst_ip;
+	public byte[] getClient_mac() {
+		return client_mac;
 	}
 
-	public void setDst_ip(Integer dst_ip) {
-		this.dst_ip = dst_ip;
+	public void setClient_mac(byte[] client_mac) {
+		this.client_mac = client_mac;
 	}
 
-	public Short getDst_port() {
-		return dst_port;
+	public Integer getServer_ip() {
+		return server_ip;
 	}
 
-	public void setDst_port(Short dst_port) {
-		this.dst_port = dst_port;
+	public void setServer_ip(Integer server_ip) {
+		this.server_ip = server_ip;
+	}
+
+	public Short getServer_port() {
+		return server_port;
+	}
+
+	public void setServer_port(Short server_port) {
+		this.server_port = server_port;
+	}
+
+	public byte[] getServer_mac() {
+		return server_mac;
+	}
+
+	public void setServer_mac(byte[] server_mac) {
+		this.server_mac = server_mac;
 	}
 
 	public TProxyServer getProxy() {

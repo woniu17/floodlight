@@ -1,20 +1,25 @@
 package net.floodlightcontroller.proxycache;
 
-import net.floodlightcontroller.devicemanager.internal.Device;
+import net.floodlightcontroller.devicemanager.IDevice;
 
 public class TProxyServer {
 
-	private Device device;
-	public TProxyServer(Device device){
-		this.device = device;
-	}
-	public Device getDevice() {
-		return device;
-	}
-	public void setDevice(Device device) {
+	private IDevice device;
+	public TProxyServer(IDevice device){
 		this.device = device;
 	}
 	
+	
+	public IDevice getDevice() {
+		return device;
+	}
+
+
+	public void setDevice(IDevice device) {
+		this.device = device;
+	}
+
+
 	public Integer getIP(){
 		return this.device.getIPv4Addresses()[0];
 	}
