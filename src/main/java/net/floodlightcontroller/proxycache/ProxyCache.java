@@ -51,6 +51,7 @@ import org.openflow.protocol.action.OFActionDataLayerSource;
 import org.openflow.protocol.action.OFActionNetworkLayerDestination;
 import org.openflow.protocol.action.OFActionNetworkLayerSource;
 import org.openflow.protocol.action.OFActionOutput;
+import org.openflow.util.HexString;
 
 public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 		IFloodlightModule {
@@ -404,7 +405,7 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 			// First switch Actions: src_ip <- fwd.server_ip;
 			action_list = new ArrayList<OFAction>();
 			//System.out.println("fwd.getServer_ip(): " + new String(IPv4.toIPv4AddressBytes(fwd.getServer_ip())));
-			System.out.println("fwd.getServer_mac(): " + Ethernet.toLong(fwd.getServer_mac()));
+			System.out.println("fwd.getServer_mac(): " + HexString.toHexString(fwd.getServer_mac()));
 			OFAction action = new OFActionDataLayerSource(fwd.getServer_mac());
 			action_list.add(action);
 			action = new OFActionNetworkLayerSource(fwd.getServer_ip());
@@ -455,7 +456,7 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 			IDevice srcDevice, IDevice dstDevice, List<OFAction> action_list,
 			Integer wildcard_hints) {
 		// TODO Auto-generated method stub
-		System.out.println("ProxyCache.doForwardFlow!!!!!!!");
+//		System.out.println("ProxyCache.doForwardFlow!!!!!!!");
 		// super.doForwardFlow(sw, pi, cntx, requestFlowRemovedNotifn);
 		OFMatch match = new OFMatch();
 		match.loadFromPacket(pi.getPacketData(), pi.getInPort());
@@ -615,17 +616,19 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 	}
 
 	@Override
-	public void addProxy(int host, int cache) {
-		// TODO Auto-generated method stub
-		System.out.println("addProxy!!!!!!");
-	}
-
-	@Override
 	public void setProxy(Device device) {
 		// TODO Auto-generated method stub
 		TProxyServer proxy = new TProxyServer(device);
 		this.proxy_list = new ArrayList<TProxyServer>();
 		this.proxy_list.add(proxy);
+	}
+	
+	
+
+	@Override
+	public List<TProxyServer> getProxyList() {
+		// TODO Auto-generated method stub
+		return this.proxy_list;
 	}
 
 	@Override

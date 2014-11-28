@@ -31,6 +31,7 @@ window.HomeView = Backbone.View.extend({
         $(this.el).find('#controller-status').html(new StatusView({model:stats}).render().el);
         $(this.el).find('#switch-list').html(new SwitchListView({model:swl}).render().el);
         $(this.el).find('#host-list').html(new HostListView({model:hl}).render().el);
+        $(this.el).find('#proxyrule-list').html(new ProxyruleListView({model:prl}).render().el);
         return this;
     },
 

@@ -16,7 +16,7 @@ import org.restlet.data.Status;
 import org.restlet.resource.Get;
 import org.restlet.resource.ServerResource;
 
-public class ProxyCacheAddProxyResource extends ServerResource {
+public class ProxyCacheSetGlobalProxyResource extends ServerResource {
 	public static final String MAC_ERROR = "Invalid MAC address: must be a 48-bit quantity, "
 			+ "expressed in hex as AA:BB:CC:DD:EE:FF";
 	public static final String VLAN_ERROR = "Invalid VLAN: must be an integer in the range 0-4095";
@@ -27,7 +27,7 @@ public class ProxyCacheAddProxyResource extends ServerResource {
 	public static final String PORT_ERROR = "Invalid Port: must be a positive integer";
 
 	@Get("json")
-	public String addProxy() {
+	public String setGlobalProxy() {
 
 		Form form = getQuery();
 		String mac = (String) getRequestAttributes().get("mac");

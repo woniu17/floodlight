@@ -16,8 +16,8 @@ public interface IProxyCacheService extends IFloodlightService {
 	
 	Set<Integer> listCache();
 	
-	void addProxy(int host, int cache);
 	void setProxy(Device device);
+	List<TProxyServer> getProxyList();
 	
 	void deleteProxy(int host, int cache);
 	

@@ -90,10 +90,16 @@ var AppRouter = Backbone.Router.extend({
 // load global models and reuse them
 var swl = new SwitchCollection();
 var hl  = new HostCollection();
+var prl = new ProxyruleCollection();
 
 var updating = true;
 
-tpl.loadTemplates(['home', 'status', 'topology', 'header', 'switch', 'switch-list', 'switch-list-item', 'host', 'host-list', 'host-list-item', 'port-list', 'port-list-item', 'flow-list', 'flow-list-item'],
+tpl.loadTemplates(['home', 'status', 'topology', 'header', 
+	'switch', 'switch-list', 'switch-list-item', 
+	'host', 'host-list', 'host-list-item', 
+	'port-list', 'port-list-item', 
+	'flow-list', 'flow-list-item', 
+	'proxyrule-list','proxyrule-list-item'],
     function () {
         app = new AppRouter();
         Backbone.history.start({pushState: true});
@@ -119,11 +125,13 @@ tpl.loadTemplates(['home', 'status', 'topology', 'header', 'switch', 'switch-lis
             // wait for the page to be rendered before loading any data
             swl.fetch();
             hl.fetch();
+            prl.fetch();
             
             setInterval(function () {
                 if(updating) {
                     swl.fetch();
                     hl.fetch();
+                    prl.fetch();
                 }
             }, 3000);
         });

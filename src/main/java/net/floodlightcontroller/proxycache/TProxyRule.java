@@ -2,38 +2,39 @@ package net.floodlightcontroller.proxycache;
 
 public class TProxyRule {
 	//match field
-	private String src_ip;
-	private Short src_port;
-	private Integer dst_ip;
-	private Short dst_prot;
+	private String client_ip;
+	private Short client_port;
+	private String server_ip;
+	private Short server_port;
 	private Integer priority;
 	
 	//proxy
 	private TProxyServer proxy;
 	
-	public String getSrc_ip() {
-		return src_ip;
+	
+	public String getClient_ip() {
+		return client_ip;
 	}
-	public void setSrc_ip(String src_ip) {
-		this.src_ip = src_ip;
+	public void setClient_ip(String client_ip) {
+		this.client_ip = client_ip;
 	}
-	public Short getSrc_port() {
-		return src_port;
+	public Short getClient_port() {
+		return client_port;
 	}
-	public void setSrc_port(Short src_port) {
-		this.src_port = src_port;
+	public void setClient_port(Short client_port) {
+		this.client_port = client_port;
 	}
-	public Integer getDst_ip() {
-		return dst_ip;
+	public String getServer_ip() {
+		return server_ip;
 	}
-	public void setDst_ip(Integer dst_ip) {
-		this.dst_ip = dst_ip;
+	public void setServer_ip(String server_ip) {
+		this.server_ip = server_ip;
 	}
-	public Short getDst_prot() {
-		return dst_prot;
+	public Short getServer_port() {
+		return server_port;
 	}
-	public void setDst_prot(Short dst_prot) {
-		this.dst_prot = dst_prot;
+	public void setServer_port(Short server_port) {
+		this.server_port = server_port;
 	}
 	public Integer getPriority() {
 		return priority;

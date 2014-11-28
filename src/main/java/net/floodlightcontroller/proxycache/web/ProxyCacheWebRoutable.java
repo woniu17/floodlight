@@ -17,7 +17,8 @@ public class ProxyCacheWebRoutable implements RestletRoutable {
 		//System.out.println("ProxyCacheWebRoutable.getRestlet!!!!!!!!!!!!!!!!!");
 		// TODO Auto-generated method stub
 		Router router = new Router(context);
-        router.attach("/addproxy/{mac}/json", ProxyCacheAddProxyResource.class);
+        router.attach("/setglobalproxy/{mac}/json", ProxyCacheSetGlobalProxyResource.class);
+        router.attach("/getproxyrulelist/json", ProxyCacheGetProxyRuleListResource.class);
         return router;
 	}
 
