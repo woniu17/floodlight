@@ -1,2 +1,2 @@
         <td><a href="/host/<%= mac %>"><%= mac %></a></td><!-- <td><%= vlan %></td> --><td><%= ipv4 %></td><td><%= swport %></td><td><%= lastSeen %></td>
-        <td><a href="javascript:void(0);">set as web proxy</td>
+        <td><input type="button" value="set as proxy" onclick="set_as_proxy('<%= mac %>');" />

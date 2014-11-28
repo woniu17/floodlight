@@ -24,6 +24,7 @@ import net.floodlightcontroller.counter.ICounterStoreService;
 import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
+import net.floodlightcontroller.devicemanager.internal.Device;
 import net.floodlightcontroller.firewall.FirewallRule;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
@@ -74,23 +75,23 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
 		// for temp
-		if (proxy_list == null || proxy_list.size() < 1) {
-			proxy_list = new ArrayList<TProxyServer>();
-			Collection<IDevice> devices = (Collection<IDevice>) this.deviceManager
-					.getAllDevices();
-			for (IDevice d : devices) {
-				if ("00:00:00:00:00:04".equals(d.getMACAddressString())) {
-					Integer[] ip = d.getIPv4Addresses();
-					System.out.println("mac:" + d.getMACAddressString());
-					if (ip == null || ip.length < 1)
-						break;
-					System.out.println("ip[0]:" + IPv4.fromIPv4Address(ip[0]));
-					TProxyServer proxy = new TProxyServer(d);
-					proxy_list.add(proxy);
-				}
-
-			}
-		}
+//		if (proxy_list == null || proxy_list.size() < 1) {
+//			proxy_list = new ArrayList<TProxyServer>();
+//			Collection<IDevice> devices = (Collection<IDevice>) this.deviceManager
+//					.getAllDevices();
+//			for (IDevice d : devices) {
+//				if ("00:00:00:00:00:04".equals(d.getMACAddressString())) {
+//					Integer[] ip = d.getIPv4Addresses();
+//					if (ip == null || ip.length < 1)
+//						break;
+//					System.out.println("mac:" + d.getMACAddressString());
+//					System.out.println("ip[0]:" + IPv4.fromIPv4Address(ip[0]));
+//					TProxyServer proxy = new TProxyServer(d);
+//					proxy_list.add(proxy);
+//				}
+//
+//			}
+//		}
 		// for temp
 		command = Command.CONTINUE;
 		check(sw, pi, cntx, false);
@@ -333,13 +334,15 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 			return;
 		Integer src_ip = ipv4.getSourceAddress();
 		Integer dst_ip = ipv4.getDestinationAddress();
+		String src_ip_str = IPv4.fromIPv4Address(src_ip);
+		String dst_ip_str = IPv4.fromIPv4Address(dst_ip);
 
 		ArrayList<OFAction> action_list;
 		Integer wildcard_hints = 0;
 		// if HTTP request
 		if (dst_port == 80) {
 			// if match in rule_map
-			String key = src_ip + "";
+			String key = src_ip_str;
 			// if (rule_map == null)
 			// return;
 			// TProxyRule rule = rule_map.get(key);
@@ -356,9 +359,9 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 			if (fwd_map == null)
 				fwd_map = new HashMap<String, TProxyForwarding>();
 
-			key = src_ip + ":" + src_port + "";
+			key = src_ip_str + ":" + src_port + "";
 //			System.out.println("key:" + key);
-			//System.out.println("dst_ip:" + new String(IPv4.toIPv4AddressBytes(dst_ip)));
+//			System.out.println("dst_ip_str:" + dst_ip_str);
 //			System.out.println("dst_mac: " + Ethernet.toLong(dst_mac));
 			
 			//prevent no-first switch packet-in(in that case, dst is proxy)
@@ -391,7 +394,7 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 			// if match in fwd_map
 			if (fwd_map == null)
 				return;
-			String key = dst_ip + ":" + dst_port + "";
+			String key = dst_ip_str + ":" + dst_port + "";
 //			System.out.println("key:" + key);
 			TProxyForwarding fwd = fwd_map.get(key);
 			if (fwd == null)
@@ -615,6 +618,14 @@ public class ProxyCache extends ForwardingBase implements IProxyCacheService,
 	public void addProxy(int host, int cache) {
 		// TODO Auto-generated method stub
 		System.out.println("addProxy!!!!!!");
+	}
+
+	@Override
+	public void setProxy(Device device) {
+		// TODO Auto-generated method stub
+		TProxyServer proxy = new TProxyServer(device);
+		this.proxy_list = new ArrayList<TProxyServer>();
+		this.proxy_list.add(proxy);
 	}
 
 	@Override

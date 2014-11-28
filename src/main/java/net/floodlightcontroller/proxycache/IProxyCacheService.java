@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.floodlightcontroller.core.module.IFloodlightService;
+import net.floodlightcontroller.devicemanager.internal.Device;
 import net.floodlightcontroller.firewall.FirewallRule;
 
 public interface IProxyCacheService extends IFloodlightService {
@@ -16,6 +17,7 @@ public interface IProxyCacheService extends IFloodlightService {
 	Set<Integer> listCache();
 	
 	void addProxy(int host, int cache);
+	void setProxy(Device device);
 	
 	void deleteProxy(int host, int cache);
 	
