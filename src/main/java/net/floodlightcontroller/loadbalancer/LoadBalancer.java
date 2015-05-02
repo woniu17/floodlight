@@ -513,6 +513,10 @@ public class LoadBalancer implements IFloodlightModule,
                if (inBound) {
                    entryName = "inbound-vip-"+ member.vipId+"-client-"+client.ipAddress+"-port-"+client.targetPort
                            +"-srcswitch-"+path.get(0).getNodeId()+"-sw-"+sw;
+                   
+                   entryName = "inbound-vip-"+ member.vipId+"-port-"+client.targetPort
+                		   +"-client-"+client.ipAddress+"-port-"+client.srcPort
+                           +"-srcswitch-"+path.get(0).getNodeId()+"-sw-"+sw; // add by qingluck, to make it work well when one source ip send one more request simultaneously.
                    mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
                    .setExact(MatchField.IP_PROTO, client.nw_proto)
                    .setExact(MatchField.IPV4_SRC, client.ipAddress)
@@ -534,10 +538,12 @@ public class LoadBalancer implements IFloodlightModule,
                        if (pinSwitch.getOFFactory().getVersion().compareTo(OFVersion.OF_12) < 0) { 
                     	   actions.add(pinSwitch.getOFFactory().actions().setDlDst(MacAddress.of(member.macString)));
                     	   actions.add(pinSwitch.getOFFactory().actions().setNwDst(IPv4Address.of(member.address)));
+                    	   actions.add(pinSwitch.getOFFactory().actions().setTpDst(TransportPort.of(member.port))); //add by qingluck, for port-mapping
                     	   actions.add(pinSwitch.getOFFactory().actions().output(path.get(i+1).getPortId(), Integer.MAX_VALUE));
                        } else { // OXM introduced in OF1.2
                     	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().ethDst(MacAddress.of(member.macString))));
                     	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().ipv4Dst(IPv4Address.of(member.address))));
+                    	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().tcpDst(TransportPort.of(member.port)))); //add by qingluck, for port-mapping
                     	   actions.add(pinSwitch.getOFFactory().actions().output(path.get(i+1).getPortId(), Integer.MAX_VALUE));
                        }
                    } else {
@@ -546,6 +552,10 @@ public class LoadBalancer implements IFloodlightModule,
                } else {
                    entryName = "outbound-vip-"+ member.vipId+"-client-"+client.ipAddress+"-port-"+client.targetPort
                            +"-srcswitch-"+path.get(0).getNodeId()+"-sw-"+sw;
+                   
+                   entryName = "outbound-vip-"+"-port-"+client.targetPort
+                		   + member.vipId+"-client-"+client.ipAddress+"-port-"+client.srcPort
+                           +"-srcswitch-"+path.get(0).getNodeId()+"-sw-"+sw; // add by qingluck, to make it work well when one source ip send one more request simultaneously.
                    mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
                    .setExact(MatchField.IP_PROTO, client.nw_proto)
                    .setExact(MatchField.IPV4_DST, client.ipAddress)
@@ -566,10 +576,12 @@ public class LoadBalancer implements IFloodlightModule,
                        if (pinSwitch.getOFFactory().getVersion().compareTo(OFVersion.OF_12) < 0) { 
                     	   actions.add(pinSwitch.getOFFactory().actions().setDlSrc(vips.get(member.vipId).proxyMac));
                     	   actions.add(pinSwitch.getOFFactory().actions().setNwSrc(IPv4Address.of(vips.get(member.vipId).address)));
+                    	   actions.add(pinSwitch.getOFFactory().actions().setTpSrc(TransportPort.of(vips.get(member.vipId).port)));//add by qingluck, for port-mapping
                     	   actions.add(pinSwitch.getOFFactory().actions().output(path.get(i+1).getPortId(), Integer.MAX_VALUE));
                        } else { // OXM introduced in OF1.2
                     	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().ethSrc(vips.get(member.vipId).proxyMac)));
                     	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().ipv4Src(IPv4Address.of(vips.get(member.vipId).address))));
+                    	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().tcpSrc(TransportPort.of(vips.get(member.vipId).port))));//add by qingluck, for port-mapping
                     	   actions.add(pinSwitch.getOFFactory().actions().output(path.get(i+1).getPortId(), Integer.MAX_VALUE));
                        }
                    } else {
