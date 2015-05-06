@@ -517,12 +517,18 @@ public class LoadBalancer implements IFloodlightModule,
                    entryName = "inbound-vip-"+ member.vipId+"-port-"+client.targetPort
                 		   +"-client-"+client.ipAddress+"-port-"+client.srcPort
                            +"-srcswitch-"+path.get(0).getNodeId()+"-sw-"+sw; // add by qingluck, to make it work well when one source ip send one more request simultaneously.
+                   
+                   	 //entryName = inbound-vip~1;client~10.0.0.1;srcsw~00:00:00:00:00:00:00:01;pinsw~00:00:00:00:00:00:00:01
+                   entryName = "inbound-vip~"+ member.vipId
+                		   	+";client~"+client.ipAddress
+                         +";srcsw~"+path.get(0).getNodeId()+";pinsw~"+sw; // add by qingluck, to work as my lb
+                   
                    mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
                    .setExact(MatchField.IP_PROTO, client.nw_proto)
                    .setExact(MatchField.IPV4_SRC, client.ipAddress)
                    .setExact(MatchField.IN_PORT, path.get(i).getPortId());
                    if (client.nw_proto.equals(IpProtocol.TCP)) {
-                	   mb.setExact(MatchField.TCP_SRC, client.srcPort);
+                	   //mb.setExact(MatchField.TCP_SRC, client.srcPort); //add by qingluck, don't match tcp port
                    } else if (client.nw_proto.equals(IpProtocol.UDP)) {
                 	   mb.setExact(MatchField.UDP_SRC, client.srcPort);
                    } else if (client.nw_proto.equals(IpProtocol.SCTP)) {
@@ -556,12 +562,18 @@ public class LoadBalancer implements IFloodlightModule,
                    entryName = "outbound-vip-"+"-port-"+client.targetPort
                 		   + member.vipId+"-client-"+client.ipAddress+"-port-"+client.srcPort
                            +"-srcswitch-"+path.get(0).getNodeId()+"-sw-"+sw; // add by qingluck, to make it work well when one source ip send one more request simultaneously.
+                 
+                   //entryName = inbound-vip~1;client~10.0.0.1;srcsw~00:00:00:00:00:00:00:01;pinsw~00:00:00:00:00:00:00:01
+                   entryName = "outbound-vip~"+ member.vipId
+                		   	+";client~"+client.ipAddress
+                         +";srcsw~"+path.get(0).getNodeId()+";pinsw~"+sw; // add by qingluck, to work as my lb
+                   
                    mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
                    .setExact(MatchField.IP_PROTO, client.nw_proto)
                    .setExact(MatchField.IPV4_DST, client.ipAddress)
                    .setExact(MatchField.IN_PORT, path.get(i).getPortId());
                    if (client.nw_proto.equals(IpProtocol.TCP)) {
-                	   mb.setExact(MatchField.TCP_DST, client.srcPort);
+                	   //mb.setExact(MatchField.TCP_DST, client.srcPort); //add by qingluck, don't match tcp port
                    } else if (client.nw_proto.equals(IpProtocol.UDP)) {
                 	   mb.setExact(MatchField.UDP_DST, client.srcPort);
                    } else if (client.nw_proto.equals(IpProtocol.SCTP)) {
