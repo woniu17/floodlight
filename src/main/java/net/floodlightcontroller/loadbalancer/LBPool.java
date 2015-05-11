@@ -17,10 +17,11 @@
 package net.floodlightcontroller.loadbalancer;
 
 import java.util.ArrayList;
-
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import java.util.HashMap;
 
 import net.floodlightcontroller.loadbalancer.LoadBalancer.IPClient;
+
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 /**
  * Data structure for Load Balancer based on
@@ -69,6 +70,27 @@ public class LBPool {
         } else {
             return null;
         }
+    }
+    
+    public String pickMemberByWeight(LoadBalancer lb, IPClient client) {
+        // simple round robin for now; add different lbmethod later
+    	lb.updateMemberWeight();
+        if (members.size() <= 0) {
+        	return null;
+        }
+        double min_weight = 100000000000000.0;
+         String key = "-1";
+         for(String k : lb.members.keySet()){
+        	 if(min_weight > lb.members.get(k).weight){
+        		 key = k;
+        		 min_weight = lb.members.get(k).weight;
+        	 }
+         }
+         if(key.equals("-1")){
+        	 return null;
+         }
+         System.out.println("key: " + key+"; weight: " + min_weight);
+        return key;
     }
 
 }

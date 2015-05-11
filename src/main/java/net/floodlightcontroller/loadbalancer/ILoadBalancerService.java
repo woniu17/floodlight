@@ -17,6 +17,7 @@
 package net.floodlightcontroller.loadbalancer;
 
 import java.util.Collection;
+import java.util.HashMap;
 
 import net.floodlightcontroller.core.module.IFloodlightService;
 
@@ -154,5 +155,7 @@ public interface ILoadBalancerService extends IFloodlightService {
      * @return int: removal status 
      */
     public int removeMonitor(String monitorId);
+    
+    public void updateFlowList(HashMap<String, LBFlow> flow_list);
 
 }

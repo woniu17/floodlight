@@ -41,9 +41,11 @@ import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
+import org.projectfloodlight.openflow.types.OFVlanVidMatch;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.U16;
 import org.projectfloodlight.openflow.types.U64;
+import org.projectfloodlight.openflow.types.VlanVid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -115,6 +117,8 @@ public class LoadBalancer implements IFloodlightModule,
     protected HashMap<Integer, MacAddress> vipIpToMac;
     protected HashMap<Integer, String> memberIpToId;
     protected HashMap<IPClient, LBMember> clientToMember;
+    
+    protected HashMap<String, LBFlow> flow_list;
     
     //Copied from Forwarding with message damper routine for pushing proxy Arp 
     protected static int OFMESSAGE_DAMPER_CAPACITY = 10000; // ms. 
@@ -228,7 +232,8 @@ public class LoadBalancer implements IFloodlightModule,
                     
                     LBVip vip = vips.get(vipIpToId.get(destIpAddress));
                     LBPool pool = pools.get(vip.pickPool(client));
-                    LBMember member = members.get(pool.pickMember(client));
+//                    LBMember member = members.get(pool.pickMember(client));
+                    LBMember member = members.get(pool.pickMemberByWeight(this, client));
 
                     // for chosen member, check device manager and find and push routes, in both directions                    
                     pushBidirectionalVipRoutes(sw, pi, cntx, client, member);
@@ -545,11 +550,13 @@ public class LoadBalancer implements IFloodlightModule,
                     	   actions.add(pinSwitch.getOFFactory().actions().setDlDst(MacAddress.of(member.macString)));
                     	   actions.add(pinSwitch.getOFFactory().actions().setNwDst(IPv4Address.of(member.address)));
                     	   actions.add(pinSwitch.getOFFactory().actions().setTpDst(TransportPort.of(member.port))); //add by qingluck, for port-mapping
+                    	   //actions.add(pinSwitch.getOFFactory().actions().setVlanVid(VlanVid.ofVlan(123))); //add by qingluck
                     	   actions.add(pinSwitch.getOFFactory().actions().output(path.get(i+1).getPortId(), Integer.MAX_VALUE));
                        } else { // OXM introduced in OF1.2
                     	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().ethDst(MacAddress.of(member.macString))));
                     	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().ipv4Dst(IPv4Address.of(member.address))));
                     	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().tcpDst(TransportPort.of(member.port)))); //add by qingluck, for port-mapping
+                    	   //actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory().oxms().vlanVid(OFVlanVidMatch.ofVlan(123))));
                     	   actions.add(pinSwitch.getOFFactory().actions().output(path.get(i+1).getPortId(), Integer.MAX_VALUE));
                        }
                    } else {
@@ -571,7 +578,10 @@ public class LoadBalancer implements IFloodlightModule,
                    mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
                    .setExact(MatchField.IP_PROTO, client.nw_proto)
                    .setExact(MatchField.IPV4_DST, client.ipAddress)
-                   .setExact(MatchField.IN_PORT, path.get(i).getPortId());
+                   .setExact(MatchField.IN_PORT, path.get(i).getPortId())
+                   //.setExact(MatchField.VLAN_VID, 1234)
+                     // .setExact(MatchField.TUNNEL_ID, 123)
+                   	  ;
                    if (client.nw_proto.equals(IpProtocol.TCP)) {
                 	   //mb.setExact(MatchField.TCP_DST, client.srcPort); //add by qingluck, don't match tcp port
                    } else if (client.nw_proto.equals(IpProtocol.UDP)) {
@@ -842,6 +852,8 @@ public class LoadBalancer implements IFloodlightModule,
         vipIpToId = new HashMap<Integer, String>();
         vipIpToMac = new HashMap<Integer, MacAddress>();
         memberIpToId = new HashMap<Integer, String>();
+        
+        flow_list = new HashMap<String, LBFlow>();
     }
 
     @Override
@@ -851,4 +863,22 @@ public class LoadBalancer implements IFloodlightModule,
         debugCounterService.registerModule(this.getName());
         counterPacketOut = debugCounterService.registerCounter(this.getName(), "packet-outs-written", "Packet outs written by the LoadBalancer", MetaData.WARN);
     }
+
+	@Override
+	public void updateFlowList(HashMap<String, LBFlow> flow_list) {
+		// TODO Auto-generated method stub
+		this.flow_list = flow_list;
+	}
+	
+	public void updateMemberWeight(){
+		for(LBMember m : this.members.values()){
+			m.weight = 0;
+		}
+		for(LBFlow f : this.flow_list.values()){
+			f.member.weight += f.weight;
+		}
+		for(LBMember m : this.members.values()){
+			System.out.println("member "+ m.id + "; weight: " + m.weight);
+		}
+	}
 }

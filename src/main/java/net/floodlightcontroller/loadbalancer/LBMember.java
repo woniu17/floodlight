@@ -39,6 +39,8 @@ public class LBMember {
     protected String poolId;
     protected String vipId;
     
+    protected double weight;
+    
     public LBMember() {
         id = String.valueOf((int) (Math.random()*10000));
         address = 0;

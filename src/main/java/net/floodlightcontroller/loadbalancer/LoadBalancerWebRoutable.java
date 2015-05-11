@@ -28,6 +28,7 @@ public class LoadBalancerWebRoutable implements RestletRoutable {
     @Override
     public Restlet getRestlet(Context context) {
         Router router = new Router(context);
+        router.attach("/lbflow/", LBFlowResource.class); // POST
         router.attach("/vips/", VipsResource.class); // GET, POST
         router.attach("/vips/{vip}", VipsResource.class); // GET, PUT, DELETE 
         router.attach("/pools/", PoolsResource.class); // GET, POST
