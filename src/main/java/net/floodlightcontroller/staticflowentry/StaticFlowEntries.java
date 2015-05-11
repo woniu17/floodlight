@@ -91,7 +91,8 @@ public class StaticFlowEntries {
 		.setHardTimeout(INFINITE_TIMEOUT)
 		.setBufferId(OFBufferId.NO_BUFFER)
 		.setOutPort(OFPort.ANY) 
-		.setCookie(computeEntryCookie(0, entryName))
+		//.setCookie(computeEntryCookie(0, entryName))
+		.setCookie(U64.of(0x12345678))
 		.setPriority(Integer.MAX_VALUE)
 		.setFlags(Collections.singleton(OFFlowModFlags.SEND_FLOW_REM));
 		return;
