@@ -143,12 +143,14 @@ public class LoadBalancer implements IFloodlightModule,
         IpProtocol nw_proto;
         TransportPort srcPort; // tcp/udp src port. icmp type (OFMatch convention)
         TransportPort targetPort; // tcp/udp dst port, icmp code (OFMatch convention)
+        String macString;
         
         public IPClient() {
             ipAddress = IPv4Address.NONE;
             nw_proto = IpProtocol.NONE;
             srcPort = TransportPort.NONE;
             targetPort = TransportPort.NONE;
+            macString = "";
         }
     }
     
@@ -215,6 +217,7 @@ public class LoadBalancer implements IFloodlightModule,
                     IPClient client = new IPClient();
                     client.ipAddress = ip_pkt.getSourceAddress();
                     client.nw_proto = ip_pkt.getProtocol();
+                    client.macString = eth.getSourceMACAddress().toString();
                     if (ip_pkt.getPayload() instanceof TCP) {
                         TCP tcp_pkt = (TCP) ip_pkt.getPayload();
                         client.srcPort = tcp_pkt.getSourcePort();
@@ -373,7 +376,8 @@ public class LoadBalancer implements IFloodlightModule,
         
         for (IDevice d : allDevices) {
             for (int j = 0; j < d.getIPv4Addresses().length; j++) {
-                    if (srcDevice == null && client.ipAddress.equals(d.getIPv4Addresses()[j]))
+//                    if (srcDevice == null && client.ipAddress.equals(d.getIPv4Addresses()[j]))
+                    if (srcDevice == null && client.macString.equals(d.getMACAddressString()))
                         srcDevice = d;
                     if (dstDevice == null && member.address == d.getIPv4Addresses()[j].getInt()) {
                         dstDevice = d;
