@@ -72,9 +72,8 @@ public class LBPool {
         }
     }
     
-    public String pickMemberByWeight(LoadBalancer lb, IPClient client) {
+    public synchronized String pickMemberByWeight(LoadBalancer lb, IPClient client) {
         // simple round robin for now; add different lbmethod later
-    	lb.updateMemberWeight();
         if (members.size() <= 0) {
         	return null;
         }
@@ -90,6 +89,7 @@ public class LBPool {
         	 return null;
          }
          System.out.println("key: " + key+"; weight: " + min_weight);
+         lb.members.get(key).weight += 1.0;
         return key;
     }
 

@@ -237,7 +237,6 @@ public class LoadBalancer implements IFloodlightModule,
                     LBPool pool = pools.get(vip.pickPool(client));
 //                    LBMember member = members.get(pool.pickMember(client));
                     LBMember member = members.get(pool.pickMemberByWeight(this, client));
-
                     // for chosen member, check device manager and find and push routes, in both directions                    
                     pushBidirectionalVipRoutes(sw, pi, cntx, client, member);
                    
@@ -872,6 +871,7 @@ public class LoadBalancer implements IFloodlightModule,
 	public void updateFlowList(HashMap<String, LBFlow> flow_list) {
 		// TODO Auto-generated method stub
 		this.flow_list = flow_list;
+		this.updateMemberWeight();
 	}
 	
 	public void updateMemberWeight(){
