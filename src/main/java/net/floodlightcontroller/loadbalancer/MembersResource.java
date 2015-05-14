@@ -136,7 +136,11 @@ public class MembersResource extends ServerResource {
             if (n.equals("pool_id")) {
                 member.poolId = jp.getText();
                 continue;
-            } 
+            } else
+            if (n.equals("run_status")) {
+                member.runStatus = Short.parseShort(jp.getText());
+                continue;
+              }
             
             log.warn("Unrecognized field {} in " +
                     "parsing Members", 

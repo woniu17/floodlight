@@ -78,15 +78,16 @@ public class LBPool {
         	return null;
         }
         double min_weight = 100000000000000.0;
-         String key = "-1";
+         String key = null;
          for(String k : lb.members.keySet()){
+        	 //if not active, ignore!
+        	 if(!lb.members.get(k).isActive()){
+        		 continue;
+        	 }
         	 if(min_weight > lb.members.get(k).weight){
         		 key = k;
         		 min_weight = lb.members.get(k).weight;
         	 }
-         }
-         if(key.equals("-1")){
-        	 return null;
          }
          System.out.println("key: " + key+"; weight: " + min_weight);
          lb.members.get(key).weight += 1.0;

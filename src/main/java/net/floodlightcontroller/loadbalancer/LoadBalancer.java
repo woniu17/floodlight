@@ -36,9 +36,12 @@ import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.IPAddressWithMask;
 import org.projectfloodlight.openflow.types.IPv4Address;
+import org.projectfloodlight.openflow.types.IPv4AddressWithMask;
 import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.MacAddress;
+import org.projectfloodlight.openflow.types.Masked;
 import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.OFVlanVidMatch;
@@ -517,7 +520,8 @@ public class LoadBalancer implements IFloodlightModule,
                fmb.setOutPort(OFPort.ANY);
                fmb.setCookie(U64.of(0));  
                fmb.setPriority(FlowModUtils.PRIORITY_MAX);
-               
+               String netMask = "0.0.0.255";
+               netMask = "255.255.255.255";
                if (inBound) {
                    entryName = "inbound-vip-"+ member.vipId+"-client-"+client.ipAddress+"-port-"+client.targetPort
                            +"-srcswitch-"+path.get(0).getNodeId()+"-sw-"+sw;
@@ -530,10 +534,11 @@ public class LoadBalancer implements IFloodlightModule,
                    entryName = "inbound-vip~"+ member.vipId
                 		   	+";client~"+client.ipAddress
                          +";srcsw~"+path.get(0).getNodeId()+";pinsw~"+sw; // add by qingluck, to work as my lb
-                   
+                   Masked<IPv4Address> ipv4_src= Masked.of(client.ipAddress, IPv4Address.of(netMask));
                    mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+                   .setMasked(MatchField.IPV4_SRC, ipv4_src)
                    .setExact(MatchField.IP_PROTO, client.nw_proto)
-                   .setExact(MatchField.IPV4_SRC, client.ipAddress)
+                   //.setExact(MatchField.IPV4_SRC, client.ipAddress)
                    .setExact(MatchField.IN_PORT, path.get(i).getPortId());
                    if (client.nw_proto.equals(IpProtocol.TCP)) {
                 	   //mb.setExact(MatchField.TCP_SRC, client.srcPort); //add by qingluck, don't match tcp port
@@ -577,10 +582,12 @@ public class LoadBalancer implements IFloodlightModule,
                    entryName = "outbound-vip~"+ member.vipId
                 		   	+";client~"+client.ipAddress
                          +";srcsw~"+path.get(0).getNodeId()+";pinsw~"+sw; // add by qingluck, to work as my lb
-                   
+
+                   Masked<IPv4Address> ipv4_dst = Masked.of(client.ipAddress, IPv4Address.of(netMask));
                    mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+                   .setMasked(MatchField.IPV4_DST, ipv4_dst)
                    .setExact(MatchField.IP_PROTO, client.nw_proto)
-                   .setExact(MatchField.IPV4_DST, client.ipAddress)
+                   //.setExact(MatchField.IPV4_DST, client.ipAddress)
                    .setExact(MatchField.IN_PORT, path.get(i).getPortId())
                    //.setExact(MatchField.VLAN_VID, 1234)
                      // .setExact(MatchField.TUNNEL_ID, 123)
@@ -618,6 +625,12 @@ public class LoadBalancer implements IFloodlightModule,
                fmb.setActions(actions);
                fmb.setPriority(U16.t(LB_PRIORITY));
                fmb.setMatch(mb.build());
+               if (inBound){
+            	   System.out.println("IPV4_SRC: " + fmb.getMatch().get(MatchField.IPV4_SRC).toString());
+               }else{
+                   System.out.println("IPV4_DST: " + fmb.getMatch().get(MatchField.IPV4_DST).toString());
+               }
+               //switchService.getSwitch(sw).write(fmb.build());
                sfpService.addFlow(entryName, fmb.build(), sw);
            }
         }

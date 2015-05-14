@@ -27,6 +27,10 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 @JsonSerialize(using=LBMemberSerializer.class)
 public class LBMember {
+	static final short RUNSTATUS_ACTIVE = 0;
+	static final short RUNSTATUS_STANDBY = 1;
+	static final short RUNSTATUS_TOSTOP = 2;
+	static final short RUNSTATUS_FAIL = 3;
     protected String id;
     protected int address;
     protected short port;
@@ -40,6 +44,7 @@ public class LBMember {
     protected String vipId;
     
     protected double weight;
+    protected short runStatus;
     
     public LBMember() {
         id = String.valueOf((int) (Math.random()*10000));
@@ -52,5 +57,11 @@ public class LBMember {
         status = 0;
         poolId = null;
         vipId = null;
+        
+        weight = 0;
+        runStatus = LBMember.RUNSTATUS_ACTIVE;
+    }
+    public boolean isActive(){
+    	return this.runStatus == LBMember.RUNSTATUS_ACTIVE;
     }
 }
