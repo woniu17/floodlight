@@ -625,11 +625,11 @@ public class LoadBalancer implements IFloodlightModule,
                fmb.setActions(actions);
                fmb.setPriority(U16.t(LB_PRIORITY));
                fmb.setMatch(mb.build());
-               if (inBound){
-            	   System.out.println("IPV4_SRC: " + fmb.getMatch().get(MatchField.IPV4_SRC).toString());
-               }else{
-                   System.out.println("IPV4_DST: " + fmb.getMatch().get(MatchField.IPV4_DST).toString());
-               }
+//               if (inBound){
+//            	   System.out.println("IPV4_SRC: " + fmb.getMatch().get(MatchField.IPV4_SRC).toString());
+//               }else{
+//                   System.out.println("IPV4_DST: " + fmb.getMatch().get(MatchField.IPV4_DST).toString());
+//                 }
                //switchService.getSwitch(sw).write(fmb.build());
                sfpService.addFlow(entryName, fmb.build(), sw);
            }

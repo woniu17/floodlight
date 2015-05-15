@@ -89,8 +89,10 @@ public class LBPool {
         		 min_weight = lb.members.get(k).weight;
         	 }
          }
-         System.out.println("key: " + key+"; weight: " + min_weight);
-         lb.members.get(key).weight += 1.0;
+         if(key != null){
+        	 System.out.println("key: " + key+"; weight: " + min_weight);
+            lb.members.get(key).weight += 1.0;
+         }
         return key;
     }
 
