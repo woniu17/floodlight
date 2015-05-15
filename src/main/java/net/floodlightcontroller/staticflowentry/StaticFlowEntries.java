@@ -234,10 +234,12 @@ public class StaticFlowEntries {
 				entry.put(StaticFlowEntryPusher.COLUMN_NW_PROTO, Short.toString(match.get(MatchField.IP_PROTO).getIpProtocolNumber()));
 				break;
 			case IPV4_SRC:
-				entry.put(StaticFlowEntryPusher.COLUMN_NW_SRC, match.get(MatchField.IPV4_SRC).toString());
+				//entry.put(StaticFlowEntryPusher.COLUMN_NW_SRC, match.get(MatchField.IPV4_SRC).toString());
+				entry.put(StaticFlowEntryPusher.COLUMN_NW_SRC, match.get(MatchField.IPV4_SRC).toString() + "/24");
 				break;
 			case IPV4_DST:
-				entry.put(StaticFlowEntryPusher.COLUMN_NW_DST, match.get(MatchField.IPV4_DST).toString());
+				//entry.put(StaticFlowEntryPusher.COLUMN_NW_DST, match.get(MatchField.IPV4_DST).toString());
+				entry.put(StaticFlowEntryPusher.COLUMN_NW_DST, match.get(MatchField.IPV4_DST).toString() + "/24");
 				break;
 			case TCP_SRC:
 				entry.put(StaticFlowEntryPusher.COLUMN_TCP_SRC, match.get(MatchField.TCP_SRC).getPort());
