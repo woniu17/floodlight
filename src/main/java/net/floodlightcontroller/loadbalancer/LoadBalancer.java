@@ -637,11 +637,14 @@ public class LoadBalancer implements IFloodlightModule,
                     	   actions.add(pinSwitch.getOFFactory().actions()
                     			   .output(path.get(i+1).getPortId(), Integer.MAX_VALUE));
                        } else { // OXM introduced in OF1.2
-                    	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory()
-                    			   .oxms().ethSrc(vips.get(member.vipId).proxyMac)));
-                    	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory()
-                    			   .oxms().ipv4Src(IPv4Address.of(vips.get(member.vipId).address))));
-                    	   actions.add(pinSwitch.getOFFactory().actions().setField(pinSwitch.getOFFactory()
+                    	   actions.add(pinSwitch.getOFFactory().actions()
+                    			   .setField(pinSwitch.getOFFactory().oxms()
+                    			   .ethSrc(vips.get(member.vipId).proxyMac)));
+                    	   actions.add(pinSwitch.getOFFactory().actions()
+                    			   .setField(pinSwitch.getOFFactory().oxms()
+                    			   .ipv4Src(IPv4Address.of(vips.get(member.vipId).address))));
+                    	   actions.add(pinSwitch.getOFFactory().actions()
+                    			   .setField(pinSwitch.getOFFactory()
                     			 //add by qingluck, for port-mapping
                     			   .oxms().tcpSrc(TransportPort.of(vips.get(member.vipId).port))));
                     	   actions.add(pinSwitch.getOFFactory().actions()
